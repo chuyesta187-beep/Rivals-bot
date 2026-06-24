@@ -8,6 +8,19 @@ const {
   Partials
 } = require("discord.js");
 
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("Bot activo");
+});
+
+app.listen(process.env.PORT || 3000);
+
+// =========================
+// BOT
+// =========================
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -22,18 +35,10 @@ const client = new Client({
 // CONFIG
 // =========================
 const TOKEN = "TU_TOKEN_AQUI";
-
-// 📢 Canal donde se notifica al usuario
 const RESULT_CHANNEL_ID = "1518797881903939764";
 
-// 🧑‍💼 STAFF que puede recibir/gestionar tickets
-const STAFF_IDS = [
-  "1518798435812245554"
-];
+const STAFF_IDS = ["1518798435812245554"];
 
-// =========================
-// MEMORY
-// =========================
 const tickets = new Map();
 
 // =========================
@@ -53,7 +58,7 @@ client.on("messageCreate", async (message) => {
 
     const embed = new EmbedBuilder()
       .setTitle("🎫 Sistema de Tickets")
-      .setDescription("Presiona el botón para abrir ticket por MD")
+      .setDescription("Presiona el botón para abrir ticket")
       .setColor("Blue");
 
     const row = new ActionRowBuilder().addComponents(
@@ -82,8 +87,7 @@ client.on("interactionCreate", async (interaction) => {
 
     tickets.set(user.id, {
       answers: [],
-      result: null,
-      staff: null
+      result: null
     });
 
     await interaction.reply({
@@ -93,9 +97,9 @@ client.on("interactionCreate", async (interaction) => {
 
     const questions = [
       "🎫 ¿Cuál es tu problema?",
-      "🎮 ¿tiene evidencia?",
-      "🧠 Explícalo detalladamente"
-      "que tipo de ticket estas usando?"
+      "🎮 ¿Tiene evidencia?",
+      "🧠 Explícalo detalladamente",
+      "📌 ¿Qué tipo de ticket estás usando?"
     ];
 
     let step = 0;
@@ -142,12 +146,9 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 
-  // 🧑‍💼 RESOLVER TICKET (SOLO STAFF)
+  // 🧑‍💼 RESOLVER TICKET
   if (interaction.customId.startsWith("take_")) {
 
-    const userId = interaction.customId.split("_")[1];
-
-    // 🔒 validación staff
     if (!STAFF_IDS.includes(interaction.user.id)) {
       return interaction.reply({
         content: "❌ No tienes permisos de staff",
@@ -155,42 +156,34 @@ client.on("interactionCreate", async (interaction) => {
       });
     }
 
+    const userId = interaction.customId.split("_")[1];
+
     const user = await client.users.fetch(userId).catch(() => null);
-    if (!user) {
-      return interaction.reply({
-        content: "Usuario no encontrado",
-        ephemeral: true
-      });
-    }
+    if (!user) return;
 
     const t = tickets.get(userId);
     if (!t) return;
 
-    t.staff = interaction.user.id;
+    // 🔥 AQUÍ SE GUARDA EL RESULTADO
+    t.result = "Tu ticket fue revisado por el staff.";
 
     const channel = client.channels.cache.get(RESULT_CHANNEL_ID);
 
-    // 📢 aviso al canal
     channel.send(
-      `📩 <@${userId}> tu ticket ya fue revisado por el staff.\n` +
-      `🛠️ Escribe **=result** en este MD del bot para ver la respuesta.`
+      `📩 <@${userId}> tu ticket fue revisado.\nEscribe **=result** en MD del bot.`
     );
 
-    // 💬 MD al usuario
-    user.send(
-      "🛠️ Tu ticket fue resuelto por el staff.\n" +
-      "📩 Escribe `=result` en este MD del bot para ver la respuesta."
-    );
+    user.send("🛠️ Tu ticket fue resuelto. Escribe =result en MD.");
 
     return interaction.reply({
-      content: "✔ Ticket resuelto correctamente",
+      content: "✔ Ticket resuelto",
       ephemeral: true
     });
   }
 });
 
 // =========================
-// =RESULT EN MD
+// RESULT
 // =========================
 client.on("messageCreate", async (message) => {
 
@@ -209,11 +202,3 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(TOKEN);
-const express = require("express");
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("Bot activo");
-});
-
-app.listen(process.env.PORT || 3000);
