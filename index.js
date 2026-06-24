@@ -17,10 +17,6 @@ app.get("/", (req, res) => {
 
 app.listen(process.env.PORT || 3000);
 
-// =========================
-// BOT
-// =========================
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -31,174 +27,205 @@ const client = new Client({
   partials: [Partials.Channel]
 });
 
-// =========================
-// CONFIG
-// =========================
 const TOKEN = process.env.TOKEN;
-const RESULT_CHANNEL_ID = "1518797881903939764";
-
-const STAFF_IDS = ["1518798435812245554"];
+const SERVER_ID = "1519172507389792458";
+const RESULT_CHANNEL_ID = "1519393304524099696";
+const STAFF_IDS = ["1519236499713953812"];
 
 const tickets = new Map();
 
-// =========================
-// READY
-// =========================
 client.once("ready", () => {
-  console.log(`🤖 Bot activo como ${client.user.tag}`);
+  console.log(`🤖 Bot conectado como ${client.user.tag}`);
 });
 
-// =========================
-// PANEL
-// =========================
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
 
-  if (message.content === "!panel") {
+  if (message.guild && message.guild.id !== SERVER_ID) return;
 
+  if (message.content === "!panel") {
     const embed = new EmbedBuilder()
       .setTitle("🎫 Sistema de Tickets")
-      .setDescription("Presiona el botón para abrir ticket")
+      .setDescription("Pulsa el botón para crear un ticket.")
       .setColor("Blue");
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("start_ticket")
+        .setCustomId("ticket")
         .setLabel("Abrir Ticket")
         .setStyle(ButtonStyle.Success)
     );
 
-    message.channel.send({ embeds: [embed], components: [row] });
-  }
-});
-
-// =========================
-// INTERACCIONES
-// =========================
-client.on("interactionCreate", async (interaction) => {
-
-  if (!interaction.isButton()) return;
-
-  // 🎫 CREAR TICKET
-  if (interaction.customId === "start_ticket") {
-
-    const user = interaction.user;
-    const dm = await user.createDM();
-
-    tickets.set(user.id, {
-      answers: [],
-      result: null
-    });
-
-    await interaction.reply({
-      content: "📩 Te envié preguntas por MD",
-      ephemeral: true
-    });
-
-    const questions = [
-      "🎫 ¿Cuál es tu problema?",
-      "🎮 ¿Tiene evidencia?",
-      "🧠 Explícalo detalladamente",
-      "📌 ¿Qué tipo de ticket estás usando?"
-    ];
-
-    let step = 0;
-
-    dm.send(questions[0]);
-
-    const collector = dm.createMessageCollector({ time: 600000 });
-
-    collector.on("collect", (msg) => {
-      if (msg.author.bot) return;
-
-      const t = tickets.get(user.id);
-      if (!t) return;
-
-      t.answers.push(msg.content);
-      step++;
-
-      if (step < questions.length) {
-        dm.send(questions[step]);
-      } else {
-        collector.stop();
-
-        const channel = client.channels.cache.get(RESULT_CHANNEL_ID);
-
-        const embed = new EmbedBuilder()
-          .setTitle("📩 Nuevo Ticket")
-          .setColor("Yellow")
-          .addFields(
-            { name: "Usuario", value: `<@${user.id}>` },
-            { name: "Problema", value: t.answers[0] || "N/A" },
-            { name: "Juego", value: t.answers[1] || "N/A" },
-            { name: "Detalle", value: t.answers[2] || "N/A" }
-          );
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`take_${user.id}`)
-            .setLabel("Resolver ticket")
-            .setStyle(ButtonStyle.Primary)
-        );
-
-        channel.send({ embeds: [embed], components: [row] });
-      }
+    message.channel.send({
+      embeds: [embed],
+      components: [row]
     });
   }
 
-  // 🧑‍💼 RESOLVER TICKET
-  if (interaction.customId.startsWith("take_")) {
-
-    if (!STAFF_IDS.includes(interaction.user.id)) {
-      return interaction.reply({
-        content: "❌ No tienes permisos de staff",
-        ephemeral: true
-      });
+  if (message.content.startsWith("!responder")) {
+    if (!STAFF_IDS.includes(message.author.id)) {
+      return message.reply("❌ No eres staff.");
     }
 
-    const userId = interaction.customId.split("_")[1];
+    const args = message.content.split(" ");
+    const userId = args[1];
+    const respuesta = args.slice(2).join(" ");
 
-    const user = await client.users.fetch(userId).catch(() => null);
-    if (!user) return;
+    if (!userId || !respuesta) {
+      return message.reply(
+        "Uso: !responder ID_USUARIO mensaje"
+      );
+    }
 
-    const t = tickets.get(userId);
-    if (!t) return;
+    const ticket = tickets.get(userId);
 
-    // 🔥 AQUÍ SE GUARDA EL RESULTADO
-    t.result = "Tu ticket fue revisado por el staff.";
+    if (!ticket) {
+      return message.reply("❌ Ticket no encontrado.");
+    }
 
-    const channel = client.channels.cache.get(RESULT_CHANNEL_ID);
+    ticket.result = respuesta;
 
-    channel.send(
-      `📩 <@${userId}> tu ticket fue revisado.\nEscribe **=result** en MD del bot.`
+    const canal = client.channels.cache.get(
+      RESULT_CHANNEL_ID
     );
 
-    user.send("🛠️ Tu ticket fue resuelto. Escribe =result en MD.");
-
-    return interaction.reply({
-      content: "✔ Ticket resuelto",
-      ephemeral: true
-    });
-  }
-});
-
-// =========================
-// RESULT
-// =========================
-client.on("messageCreate", async (message) => {
-
-  if (message.author.bot) return;
-
-  if (message.content.toLowerCase() === "=result") {
-
-    const t = tickets.get(message.author.id);
-
-    if (!t || !t.result) {
-      return message.reply("❌ Aún no tienes respuesta del staff.");
+    if (canal) {
+      canal.send(
+        `📩 <@${userId}> tu ticket fue respondido.\nEscribe **=result** al MD del bot.`
+      );
     }
 
-    return message.reply(`📩 Resultado:\n\n${t.result}`);
+    const user = await client.users
+      .fetch(userId)
+      .catch(() => null);
+
+    if (user) {
+      user.send(
+        "📩 Tu ticket fue respondido.\nEscribe **=result** aquí para verlo."
+      );
+    }
+
+    message.reply("✅ Respuesta enviada.");
+  }
+
+  if (
+    message.content.toLowerCase() === "=result"
+  ) {
+    const ticket = tickets.get(message.author.id);
+
+    if (!ticket || !ticket.result) {
+      return message.reply(
+        "❌ No tienes respuestas pendientes."
+      );
+    }
+
+    return message.reply(
+      `📩 Resultado:\n${ticket.result}`
+    );
   }
 });
+
+client.on(
+  "interactionCreate",
+  async (interaction) => {
+    if (!interaction.isButton()) return;
+
+    if (interaction.customId === "ticket") {
+      const user = interaction.user;
+
+      tickets.set(user.id, {
+        answers: [],
+        result: null
+      });
+
+      await interaction.reply({
+        content:
+          "📩 Revisa tu MD para responder el formulario.",
+        ephemeral: true
+      });
+
+      const dm = await user.createDM();
+
+      const preguntas = [
+        "🎫 ¿Cuál es tu problema?",
+        "🎮 ¿Tienes pruebas?",
+        "📝 Explícalo detalladamente."
+      ];
+
+      let paso = 0;
+
+      await dm.send(preguntas[0]);
+
+      const collector =
+        dm.createMessageCollector({
+          time: 600000
+        });
+
+      collector.on("collect", async (msg) => {
+        if (msg.author.bot) return;
+
+        const ticket = tickets.get(user.id);
+
+        if (!ticket) return;
+
+        ticket.answers.push(msg.content);
+
+        paso++;
+
+        if (paso < preguntas.length) {
+          dm.send(preguntas[paso]);
+        } else {
+          collector.stop();
+
+          const embed =
+            new EmbedBuilder()
+              .setTitle("📩 Nuevo Ticket")
+              .setColor("Yellow")
+              .addFields(
+                {
+                  name: "Usuario",
+                  value: `<@${user.id}>`
+                },
+                {
+                  name: "Problema",
+                  value:
+                    ticket.answers[0] ||
+                    "No indicado"
+                },
+                {
+                  name: "Pruebas",
+                  value:
+                    ticket.answers[1] ||
+                    "No indicado"
+                },
+                {
+                  name: "Detalle",
+                  value:
+                    ticket.answers[2] ||
+                    "No indicado"
+                }
+              );
+
+          for (const id of STAFF_IDS) {
+            const staff =
+              await client.users
+                .fetch(id)
+                .catch(() => null);
+
+            if (staff) {
+              staff.send({
+                embeds: [embed]
+              });
+            }
+          }
+
+          dm.send(
+            "✅ Tu ticket fue enviado al staff."
+          );
+        }
+      });
+    }
+  }
+);
 
 client.login(TOKEN);
