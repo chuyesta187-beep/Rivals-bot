@@ -209,3 +209,11 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(TOKEN);
+const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("Bot activo");
+});
+
+app.listen(process.env.PORT || 3000);
