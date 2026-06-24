@@ -35,13 +35,14 @@ const CLIENT_ID = "TU_CLIENT_ID";
 const SERVER_ID = "TU_SERVER_ID";
 const TICKET_CHANNEL_ID = "TU_CHANNEL_ID";
 
-// tickets store
+// ================= DATA =================
+
 const tickets = new Map();
+const spamMap = new Map();
 
 // ================= AUTO MOD =================
 
 const badWords = ["puta", "mierda", "hack", "free robux"];
-const spamMap = new Map();
 
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
@@ -50,19 +51,23 @@ client.on("messageCreate", (message) => {
 
   const msg = message.content.toLowerCase();
 
-  // palabras
+  // 🚫 palabras
   if (badWords.some(w => msg.includes(w))) {
     message.delete().catch(() => {});
     return message.channel.send(`🚫 ${message.author}, lenguaje no permitido.`);
   }
 
-  // links
-  if (msg.includes("http://") || msg.includes("https://") || msg.includes("discord.gg")) {
+  // 🚫 links
+  if (
+    msg.includes("http://") ||
+    msg.includes("https://") ||
+    msg.includes("discord.gg")
+  ) {
     message.delete().catch(() => {});
     return message.channel.send(`🚫 ${message.author}, no puedes enviar links.`);
   }
 
-  // spam
+  // 🚫 spam
   const now = Date.now();
   const data = spamMap.get(message.author.id) || { count: 0, last: now };
 
@@ -89,8 +94,8 @@ client.on("messageCreate", async (message) => {
   if (message.content === "!panel") {
     const embed = new EmbedBuilder()
       .setTitle("🎫 Tickets - Rivals Support")
-      .setColor("Blue")
-      .setDescription("Presiona el botón para abrir un ticket.");
+      .setDescription("Presiona el botón para abrir un ticket.")
+      .setColor("Blue");
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -99,7 +104,7 @@ client.on("messageCreate", async (message) => {
         .setStyle(ButtonStyle.Success)
     );
 
-    message.channel.send({ embeds: [embed], components: [row] });
+    return message.channel.send({ embeds: [embed], components: [row] });
   }
 });
 
@@ -112,7 +117,10 @@ client.on("interactionCreate", async (interaction) => {
   const user = interaction.user;
 
   if (tickets.has(user.id)) {
-    return interaction.reply({ content: "❌ Ya tienes un ticket activo.", ephemeral: true });
+    return interaction.reply({
+      content: "❌ Ya tienes un ticket activo.",
+      ephemeral: true
+    });
   }
 
   const dm = await user.createDM();
@@ -122,12 +130,15 @@ client.on("interactionCreate", async (interaction) => {
   const questions = [
     "🎮 ¿Cuál es tu problema en Rivals?",
     "📸 ¿Tienes evidencia?",
-    "🧠 Explica tu problema"
+    "🧠 Explícalo con detalle"
   ];
 
   let step = 0;
 
-  await interaction.reply({ content: "📩 Revisa tu MD.", ephemeral: true });
+  await interaction.reply({
+    content: "📩 Revisa tu MD.",
+    ephemeral: true
+  });
 
   const startEmbed = new EmbedBuilder()
     .setTitle("🎫 Ticket Abierto")
@@ -171,12 +182,7 @@ client.on("interactionCreate", async (interaction) => {
       channel.send({ embeds: [embed] });
     }
 
-    const finalDM = new EmbedBuilder()
-      .setTitle("✅ Ticket enviado")
-      .setColor("Green")
-      .setDescription("El staff lo revisará pronto.");
-
-    dm.send({ embeds: [finalDM] });
+    dm.send("✅ Ticket enviado al staff.");
   });
 });
 
@@ -187,33 +193,45 @@ const commands = [
     .setName("kick")
     .setDescription("Expulsar usuario")
     .addUserOption(o =>
-      o.setName("user").setRequired(true)
+      o.setName("user")
+        .setDescription("Usuario a expulsar")
+        .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("ban")
     .setDescription("Banear usuario")
     .addUserOption(o =>
-      o.setName("user").setRequired(true)
+      o.setName("user")
+        .setDescription("Usuario a banear")
+        .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("warn")
     .setDescription("Advertir usuario")
     .addUserOption(o =>
-      o.setName("user").setRequired(true)
+      o.setName("user")
+        .setDescription("Usuario a advertir")
+        .setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("reply")
     .setDescription("Responder ticket")
     .addUserOption(o =>
-      o.setName("user").setRequired(true)
+      o.setName("user")
+        .setDescription("Usuario del ticket")
+        .setRequired(true)
     )
     .addStringOption(o =>
-      o.setName("message").setRequired(true)
+      o.setName("message")
+        .setDescription("Mensaje de respuesta")
+        .setRequired(true)
     )
 ].map(c => c.toJSON());
+
+// ================= REGISTER COMMANDS =================
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
@@ -223,7 +241,7 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
       Routes.applicationCommands(CLIENT_ID),
       { body: commands }
     );
-    console.log("✅ Slash commands listos");
+    console.log("✅ Slash commands registrados");
   } catch (err) {
     console.log(err);
   }
@@ -258,7 +276,7 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.reply(`⚠️ ${user.tag} advertido.`);
   }
 
-  // REPLY STAFF
+  // REPLY
   if (interaction.commandName === "reply") {
     const user = interaction.options.getUser("user");
     const message = interaction.options.getString("message");
