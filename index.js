@@ -34,7 +34,7 @@ const client = new Client({
 // =========================
 // CONFIG
 // =========================
-const TOKEN = "TU_TOKEN_AQUI";
+const TOKEN = process.env.TOKEN;
 const RESULT_CHANNEL_ID = "1518797881903939764";
 
 const STAFF_IDS = ["1518798435812245554"];
