@@ -20,7 +20,7 @@ app.listen(process.env.PORT || 3000);
 // ================= CONFIG =================
 
 const TOKEN = process.env.TOKEN;
-const CLIENT_ID = "TU_CLIENT_ID";1518798166277755003
+const CLIENT_ID = "1518798166277755003";
 const SERVER_ID = "1519172507389792458";
 
 const TICKET_CHANNEL_ID = "1519230651474382878";
