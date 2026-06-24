@@ -17,6 +17,16 @@ const app = express();
 app.get("/", (req, res) => res.send("Bot activo"));
 app.listen(process.env.PORT || 3000);
 
+// ================= CONFIG =================
+
+const TOKEN = process.env.TOKEN;
+const CLIENT_ID = "TU_CLIENT_ID";
+const SERVER_ID = "1519172507389792458";
+
+const TICKET_CHANNEL_ID = "1519230651474382878";
+const STAFF_ROLE_ID = "1519236499713953812";
+const NOTICE_CHANNEL_ID = "1519393304524099696";
+
 // ================= BOT =================
 
 const client = new Client({
@@ -29,11 +39,6 @@ const client = new Client({
   ],
   partials: [Partials.Channel]
 });
-
-const TOKEN = process.env.TOKEN;
-const CLIENT_ID = "TU_CLIENT_ID";
-const SERVER_ID = "TU_SERVER_ID";
-const TICKET_CHANNEL_ID = "TU_CHANNEL_ID";
 
 // ================= DATA =================
 
@@ -51,13 +56,11 @@ client.on("messageCreate", (message) => {
 
   const msg = message.content.toLowerCase();
 
-  // 🚫 palabras
   if (badWords.some(w => msg.includes(w))) {
     message.delete().catch(() => {});
     return message.channel.send(`🚫 ${message.author}, lenguaje no permitido.`);
   }
 
-  // 🚫 links
   if (
     msg.includes("http://") ||
     msg.includes("https://") ||
@@ -67,7 +70,6 @@ client.on("messageCreate", (message) => {
     return message.channel.send(`🚫 ${message.author}, no puedes enviar links.`);
   }
 
-  // 🚫 spam
   const now = Date.now();
   const data = spamMap.get(message.author.id) || { count: 0, last: now };
 
@@ -94,8 +96,8 @@ client.on("messageCreate", async (message) => {
   if (message.content === "!panel") {
     const embed = new EmbedBuilder()
       .setTitle("🎫 Tickets - Rivals Support")
-      .setDescription("Presiona el botón para abrir un ticket.")
-      .setColor("Blue");
+      .setColor("Blue")
+      .setDescription("Presiona el botón para abrir un ticket.");
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -113,6 +115,7 @@ client.on("messageCreate", async (message) => {
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
   if (interaction.customId !== "ticket") return;
+  if (interaction.guildId !== SERVER_ID) return;
 
   const user = interaction.user;
 
@@ -125,32 +128,27 @@ client.on("interactionCreate", async (interaction) => {
 
   const dm = await user.createDM();
 
-  tickets.set(user.id, { answers: [] });
+  tickets.set(user.id, { answers: [], result: null });
 
   const questions = [
     "🎮 ¿Cuál es tu problema en Rivals?",
     "📸 ¿Tienes evidencia?",
-    "🧠 Explícalo con detalle"
+    "🧠 Explica tu problema"
   ];
 
   let step = 0;
 
   await interaction.reply({
-    content: "📩 Revisa tu MD.",
+    content: "📩 Revisa tu MD",
     ephemeral: true
   });
 
-  const startEmbed = new EmbedBuilder()
-    .setTitle("🎫 Ticket Abierto")
-    .setColor("Green")
-    .setDescription("Responde las preguntas del soporte.");
-
-  await dm.send({ embeds: [startEmbed] });
+  await dm.send("🎫 Ticket abierto en Rivals Support");
   await dm.send(questions[0]);
 
   const collector = dm.createMessageCollector({ time: 600000 });
 
-  collector.on("collect", async (msg) => {
+  collector.on("collect", (msg) => {
     if (msg.author.bot) return;
 
     const t = tickets.get(user.id);
@@ -173,8 +171,7 @@ client.on("interactionCreate", async (interaction) => {
         { name: "🎮 Problema", value: t.answers[0] || "N/A" },
         { name: "📸 Evidencia", value: t.answers[1] || "N/A" },
         { name: "🧠 Detalle", value: t.answers[2] || "N/A" }
-      )
-      .setTimestamp();
+      );
 
     const channel = client.channels.cache.get(TICKET_CHANNEL_ID);
 
@@ -193,45 +190,28 @@ const commands = [
     .setName("kick")
     .setDescription("Expulsar usuario")
     .addUserOption(o =>
-      o.setName("user")
-        .setDescription("Usuario a expulsar")
-        .setRequired(true)
+      o.setName("user").setDescription("usuario").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("ban")
     .setDescription("Banear usuario")
     .addUserOption(o =>
-      o.setName("user")
-        .setDescription("Usuario a banear")
-        .setRequired(true)
-    ),
-
-  new SlashCommandBuilder()
-    .setName("warn")
-    .setDescription("Advertir usuario")
-    .addUserOption(o =>
-      o.setName("user")
-        .setDescription("Usuario a advertir")
-        .setRequired(true)
+      o.setName("user").setDescription("usuario").setRequired(true)
     ),
 
   new SlashCommandBuilder()
     .setName("reply")
     .setDescription("Responder ticket")
     .addUserOption(o =>
-      o.setName("user")
-        .setDescription("Usuario del ticket")
-        .setRequired(true)
+      o.setName("user").setDescription("usuario").setRequired(true)
     )
     .addStringOption(o =>
-      o.setName("message")
-        .setDescription("Mensaje de respuesta")
-        .setRequired(true)
+      o.setName("message").setDescription("mensaje").setRequired(true)
     )
 ].map(c => c.toJSON());
 
-// ================= REGISTER COMMANDS =================
+// ================= REGISTER =================
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
@@ -241,7 +221,7 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
       Routes.applicationCommands(CLIENT_ID),
       { body: commands }
     );
-    console.log("✅ Slash commands registrados");
+    console.log("✅ Slash commands listos");
   } catch (err) {
     console.log(err);
   }
@@ -258,7 +238,7 @@ client.on("interactionCreate", async (interaction) => {
     const member = await interaction.guild.members.fetch(user.id);
 
     await member.kick().catch(() => {});
-    return interaction.reply(`👢 ${user.tag} expulsado.`);
+    return interaction.reply(`👢 ${user.tag} expulsado`);
   }
 
   // BAN
@@ -267,33 +247,71 @@ client.on("interactionCreate", async (interaction) => {
     const member = await interaction.guild.members.fetch(user.id);
 
     await member.ban().catch(() => {});
-    return interaction.reply(`🔨 ${user.tag} baneado.`);
+    return interaction.reply(`🔨 ${user.tag} baneado`);
   }
 
-  // WARN
-  if (interaction.commandName === "warn") {
-    const user = interaction.options.getUser("user");
-    return interaction.reply(`⚠️ ${user.tag} advertido.`);
-  }
-
-  // REPLY
+  // REPLY STAFF
   if (interaction.commandName === "reply") {
+    if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+      return interaction.reply({
+        content: "❌ No eres staff",
+        ephemeral: true
+      });
+    }
+
     const user = interaction.options.getUser("user");
-    const message = interaction.options.getString("message");
+    const msg = interaction.options.getString("message");
+
+    const t = tickets.get(user.id);
+    if (!t) {
+      return interaction.reply({
+        content: "❌ Este usuario no tiene ticket activo",
+        ephemeral: true
+      });
+    }
+
+    t.result = msg;
 
     const dm = await user.createDM();
 
     const embed = new EmbedBuilder()
       .setTitle("📩 Respuesta del Staff")
-      .setColor("Blue")
-      .setDescription(message);
+      .setColor("Green")
+      .setDescription("Tu ticket fue revisado por el staff.");
 
     await dm.send({ embeds: [embed] });
 
+    const notice = client.channels.cache.get(NOTICE_CHANNEL_ID);
+
+    if (notice) {
+      notice.send(
+        `📢 <@${user.id}> tu ticket ha sido resuelto por el staff.\n` +
+        `👉 Escribe **=result** en el MD del bot para ver la respuesta.`
+      );
+    }
+
     return interaction.reply({
-      content: `✅ Respuesta enviada a ${user.tag}`,
+      content: "✅ Respuesta enviada",
       ephemeral: true
     });
+  }
+});
+
+// ================= =RESULT =================
+
+client.on("messageCreate", (message) => {
+  if (message.author.bot) return;
+
+  if (message.channel.type !== 1) return; // solo DM bot
+
+  if (message.content.toLowerCase() === "=result") {
+    const t = tickets.get(message.author.id);
+
+    if (!t || !t.result) {
+      return message.reply("❌ No tienes resultados aún.");
+    }
+
+    return message.reply(`📩 RESULTADO:\n\n${t.result}`);
   }
 });
 
